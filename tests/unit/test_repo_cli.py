@@ -156,45 +156,25 @@ def test_locate_feature_dir_github_pr():
         sys.stderr = old_stderr
 
 
-def test_validate_local_path_allows_external():
+def test_validate_local_path_allows_external(monkeypatch):
     """Test validate-local-path allows paths outside skill repo."""
-    old_argv = sys.argv
-    old_env = os.environ.copy()
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", TEST_SKILL_DIR)
+    monkeypatch.delenv("FULLSEND_TARGET_REPO_DIR", raising=False)
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", "/tmp/test-validation"])
 
-    try:
-        os.environ["CLAUDE_SKILL_DIR"] = TEST_SKILL_DIR
-        sys.argv = ["repo.py", "validate-local-path", "/tmp/test-validation"]
-
-        exit_code = repo.main()
-        assert exit_code == 0
-
-    finally:
-        sys.argv = old_argv
-        os.environ.clear()
-        os.environ |= old_env
+    assert repo.main() == 0
 
 
-def test_validate_local_path_blocks_skill_repo():
+def test_validate_local_path_blocks_skill_repo(monkeypatch, capsys):
     """Test validate-local-path blocks paths inside skill repo."""
-    old_argv = sys.argv
-    old_stderr = sys.stderr
-    old_env = os.environ.copy()
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", TEST_SKILL_DIR)
+    monkeypatch.delenv("FULLSEND_TARGET_REPO_DIR", raising=False)
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(Path.cwd())])
 
-    try:
-        os.environ["CLAUDE_SKILL_DIR"] = TEST_SKILL_DIR
-        sys.argv = ["repo.py", "validate-local-path", str(Path.cwd())]
-        sys.stderr = StringIO()
-
-        assert repo.main() == 1
-
-        error = sys.stderr.getvalue()
-        assert "Cannot create artifacts in skill repository" in error
-
-    finally:
-        sys.argv = old_argv
-        sys.stderr = old_stderr
-        os.environ.clear()
-        os.environ |= old_env
+    assert repo.main() == 1
+    assert "Cannot create artifacts in skill repository" in capsys.readouterr().err
 
 
 def test_validate_local_path_allows_fullsend_output_under_a_distinct_target_root(tmp_path, monkeypatch):
