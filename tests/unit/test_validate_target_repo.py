@@ -56,6 +56,65 @@ class TestValidateTargetRepo:
             ("https://github.com/org/repo", True, "org/repo", None),
             ("https://github.com/opendatahub-io/opendatahub-tests", True, "opendatahub-io/opendatahub-tests", None),
             ("http://github.com/my-org/my-repo", True, "my-org/my-repo", None),
+            pytest.param("example/my.project", True, "example/my.project", None, id="dotted-shorthand"),
+            pytest.param("example/my.project.git", True, "example/my.project.git", None, id="literal-shorthand-suffix"),
+            pytest.param(
+                "https://github.com/example/my.project", True, "example/my.project", None, id="dotted-https-url"
+            ),
+            pytest.param(
+                "http://github.com/example/my.project", True, "example/my.project", None, id="dotted-http-url"
+            ),
+            pytest.param(
+                "https://github.com/example/my.project.git", True, "example/my.project", None, id="dotted-clone-url"
+            ),
+            pytest.param("https://github.com/example/repo.git", True, "example/repo", None, id="plain-clone-url"),
+            pytest.param(
+                "https://github.com/example/my.project.git.git",
+                True,
+                "example/my.project.git",
+                None,
+                id="strip-one-clone-suffix",
+            ),
+            pytest.param(
+                "https://github.com/example/my.git.project",
+                True,
+                "example/my.git.project",
+                None,
+                id="keep-internal-git",
+            ),
+            pytest.param("https://github.com/example/.github", True, "example/.github", None, id="leading-dot"),
+            pytest.param(
+                "https://github.com/example/my.project/", True, "example/my.project", None, id="dotted-trailing-slash"
+            ),
+            pytest.param(
+                "https://github.com/example/my.project.git/",
+                True,
+                "example/my.project",
+                None,
+                id="clone-trailing-slash",
+            ),
+            pytest.param(
+                "https://github.com/example/my.project/tree/main",
+                True,
+                "example/my.project",
+                None,
+                id="dotted-url-subpath",
+            ),
+            pytest.param(
+                "https://user:token@github.com/example/my.project.git",
+                True,
+                "example/my.project",
+                None,
+                id="credentialed-dotted-url",
+            ),
+            pytest.param(
+                "https://github.com/example/my.project$bad", False, None, "org/repo", id="invalid-dotted-repo"
+            ),
+            pytest.param("https://github.com/my org/my.project", False, None, "org/repo", id="invalid-dotted-owner"),
+            pytest.param("https://github.com/example/.git", False, None, "org/repo", id="empty-clone-name"),
+            pytest.param(
+                "https://gitlab.com/example/my.project", False, None, "Invalid GitHub URL", id="unsupported-host"
+            ),
             ("my org/repo", False, None, "org/repo"),
             ("org/repo?ref=main", False, None, "org/repo"),
             (
