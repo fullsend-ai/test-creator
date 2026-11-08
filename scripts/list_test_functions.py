@@ -65,7 +65,7 @@ def list_test_functions(file_path: str) -> str:
             "docstring": ast.get_docstring(node),
         }
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_")
     ]
 
     return json.dumps(
