@@ -56,9 +56,9 @@ def validate_target_repo(repo_name: str) -> dict:
     """
     # Accept full GitHub URLs, extract org/repo
     if repo_name.startswith("http://") or repo_name.startswith("https://"):
-        match = re.search(r"github\.com[:/]([^/]+)/([^/\.]+)", repo_name)
+        match = re.search(r"github\.com[:/]([^/]+)/([^/]+)", repo_name)
         if match:
-            repo_name = f"{match.group(1)}/{match.group(2)}"
+            repo_name = f"{match.group(1)}/{match.group(2).removesuffix('.git')}"
         else:
             return {"valid": False, "error": "Invalid GitHub URL format"}
 

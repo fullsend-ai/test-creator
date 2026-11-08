@@ -56,6 +56,11 @@ class TestValidateTargetRepoWithArgs:
             ("", "opendatahub-io/opendatahub-tests"),  # No args → default
             ("feature/path --target-repo opendatahub-io/notebooks", "opendatahub-io/notebooks"),
             ("--test-cases TC-001 --target-repo opendatahub-io/model-registry", "opendatahub-io/model-registry"),
+            pytest.param("--target-repo example/my.project", "example/my.project", id="dotted-shorthand"),
+            pytest.param("--target-repo https://github.com/example/my.project", "example/my.project", id="dotted-url"),
+            pytest.param(
+                "--target-repo https://github.com/example/my.project.git", "example/my.project", id="dotted-clone-url"
+            ),
         ],
     )
     def test_parses_target_repo_from_arguments(self, args, expected_output):
