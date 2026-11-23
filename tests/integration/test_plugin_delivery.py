@@ -11,9 +11,11 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter, write_frontmatter_with_body
 from tests.constants import VALID_TEST_CASE_DATA
+from tests.consts.strategy_constants import STRATEGY_WITH_UNFETCHED_ATTACHMENT, STRATEGY_WITHOUT_AC
 from tests.consts.test_plan_constants import (
     VALID_TEST_PLAN_BODY_FOR_CASES_VALIDATION,
     VALID_TEST_PLAN_DATA,
@@ -1216,3 +1218,63 @@ def test_post_test_plan_cases_handoff_reconciles_indexed_cases_safely(tmp_path: 
     assert not (target_cases / "TC-E2E-002.md").exists(), "An obsolete indexed case must be removed"
     assert (target_cases / "TC-E2E-999.md").read_bytes() == POST_HOOK_UNINDEXED_CASE
     assert (target_cases.parent / "TC-E2E-777.md").read_bytes() == POST_HOOK_OUTSIDE_CASE
+
+
+@pytest.mark.parametrize(
+    ("strategy", "published"),
+    [
+        pytest.param(STRATEGY_WITH_UNFETCHED_ATTACHMENT, False, id="overflow-marker-survives"),
+        pytest.param(STRATEGY_WITHOUT_AC, True, id="genuine-no-acceptance-criteria"),
+    ],
+)
+def test_post_test_plan_rejects_snapshot_with_unfetched_strategy_attachment(
+    tmp_path: Path, strategy: str, published: bool
+) -> None:
+    output_base = tmp_path / "host output"
+    iteration_output = output_base / "sandbox" / "iteration-1" / "output"
+    iteration_output.mkdir(parents=True)
+    repo_dir = tmp_path / "downloaded workspace"
+    source_feature = repo_dir / "plans" / "example_feature"
+    source_feature.mkdir(parents=True)
+    (iteration_output / "agent-result.json").write_text(
+        json.dumps({"feature_dir": "plans/example_feature", "no_acceptance_criteria": True}),
+        encoding="utf-8",
+    )
+    (source_feature / "TestPlanReview.md").write_text("# Review\nRework.\n", encoding="utf-8")
+    (source_feature / ".source-strategy.md").write_text(strategy, encoding="utf-8")
+    (source_feature / ".test-plan-output-dir.json").write_text(
+        json.dumps({"output_dir": str(source_feature.parent)}), encoding="utf-8"
+    )
+
+    result = subprocess.run(
+        [sys.executable, str(FULLSEND_POST_TEST_PLAN_HOOK)],
+        cwd=REPO_ROOT,
+        env={
+            "FULLSEND_VALIDATED_ITERATION_DIR": str(iteration_output),
+            "REPO_DIR": str(repo_dir),
+            "FULLSEND_TASK": "/test-plan-create TEST-999 --output-dir plans",
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    target_review = output_base / "plans" / "example_feature" / "TestPlanReview.md"
+    if published:
+        assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert target_review.read_text(encoding="utf-8") == "# Review\nRework.\n"
+    else:
+        assert result.returncode != 0
+        assert "strategy attachment was not fetched" in result.stderr
+        assert not (output_base / "plans").exists(), "No review artifact may be published"
+
+
+@pytest.mark.parametrize("profile_name", ["jira-profile.yaml", "jira-read-only-profile.yaml"])
+def test_jira_profiles_allow_read_only_attachment_media_host(profile_name: str) -> None:
+    profile = yaml.safe_load((REPO_ROOT / ".fullsend" / "test-plan" / profile_name).read_text(encoding="utf-8"))
+
+    media_endpoints = [endpoint for endpoint in profile["endpoints"] if endpoint["host"] == "api.media.atlassian.com"]
+
+    assert len(media_endpoints) == 1
+    assert media_endpoints[0]["port"] == 443
+    assert media_endpoints[0]["access"] == "read-only"

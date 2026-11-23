@@ -23,7 +23,7 @@ import secrets
 import sys
 from pathlib import Path
 
-from scripts.strategy_source import parse_components
+from scripts.strategy_source import OVERFLOW_MARKER, parse_components
 from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.repo_utils import get_git_root
 from scripts.utils.schemas import SCHEMAS
@@ -266,6 +266,11 @@ def cmd_workflow_inputs(args):
         content = _load_strat_content(args.strat_file)
     except (ValueError, OSError):
         exit_error_with_json({"status": "error", "error": "strategy_file_unreadable"})
+
+    # A surviving overflow marker means the authoritative strategy attachment was never fetched;
+    # the truncated description must not reach the no-acceptance-criteria gate as a content verdict.
+    if OVERFLOW_MARKER in content:
+        exit_error_with_json({"status": "failed", "error": "strategy_attachment_not_fetched"})
 
     result = workflow_inputs(content)
     print(json.dumps(result, indent=2))

@@ -126,6 +126,11 @@ for name in required:
     with open_regular(source_dir / name) as stream:
         if os.fstat(stream.fileno()).st_size == 0:
             raise ValueError(f"required file is empty: {name}")
+# Same text as scripts/strategy_source.py OVERFLOW_MARKER. If it survives into the snapshot, the
+# authoritative strategy attachment was never fetched, so any review of that snapshot is invalid.
+with open_regular(source_dir / ".source-strategy.md") as stream:
+    if b"exceeds Jira's description size limit" in stream.read():
+        raise ValueError("strategy attachment was not fetched: .source-strategy.md still has the overflow marker")
 if (source_dir / "TestPlan.md").exists() != (source_dir / "README.md").exists():
     raise ValueError("plan and README must be present together")
 with open_regular(source_dir / ".test-plan-output-dir.json") as stream:

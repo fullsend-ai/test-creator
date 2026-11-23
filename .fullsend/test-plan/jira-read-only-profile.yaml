@@ -13,6 +13,12 @@ endpoints:
     protocol: rest
     enforcement: enforce
     access: read-only
+  # Attachment content URLs (/rest/api/2/attachment/content/<id>) redirect to the media CDN.
+  - host: "api.media.atlassian.com"
+    port: 443
+    protocol: rest
+    enforcement: enforce
+    access: read-only
 binaries:
   - "**/python"
   - "**/python*"
