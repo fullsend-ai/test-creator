@@ -86,8 +86,10 @@ def format_issue_as_markdown(
     overflow marker makes that exact newest strategy attachment authoritative.
     Matching attachments without the marker remain orphaned and are ignored.
     If the marker is present but no usable matching attachment is available, the
-    fetched description is retained so the existing no-acceptance-criteria gate
-    remains authoritative. Download errors are propagated to the caller.
+    fetched description (marker included) is retained; ``parse_strat.py
+    workflow-inputs`` rejects a surviving marker as an unfetched attachment rather
+    than letting the no-acceptance-criteria gate issue a content verdict.
+    Download errors are propagated to the caller.
 
     ``attachment_downloader`` is injectable so the direct CLI can preserve its
     existing module-level test seam while other callers use the Jira utility

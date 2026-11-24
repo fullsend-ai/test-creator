@@ -14,6 +14,7 @@ from scripts.utils.strat_utils import (
     parse_out_of_scope,
     workflow_inputs,
 )
+from tests.consts.strategy_constants import STRATEGY_WITH_UNFETCHED_ATTACHMENT, STRATEGY_WITHOUT_AC
 from tests.helpers import strat_with_testability_heading
 from tests.constants import (
     STRAT_AC_H2_PREFIX_COLLISION,
@@ -506,6 +507,31 @@ class TestWorkflowInputsCLI:
 
         assert exit_code == 1
         assert output == {"status": "error", "error": "strategy_file_unreadable"}
+
+    def test_surviving_overflow_marker_fails_instead_of_no_acceptance_criteria(self, tmp_path, run_cli, monkeypatch):
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "TEST-999.md"
+        strategy_file.write_text(STRATEGY_WITH_UNFETCHED_ATTACHMENT)
+
+        exit_code, output = run_cli(main, ["workflow-inputs", str(strategy_file)])
+
+        assert exit_code == 1
+        assert output == {"status": "failed", "error": "strategy_attachment_not_fetched"}
+
+    def test_strategy_without_marker_or_ac_still_reports_no_acceptance_criteria(self, tmp_path, run_cli, monkeypatch):
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "TEST-998.md"
+        strategy_file.write_text(STRATEGY_WITHOUT_AC)
+
+        exit_code, output = run_cli(main, ["workflow-inputs", str(strategy_file)])
+
+        assert exit_code == 0
+        assert output["status"] == "no_acceptance_criteria"
+        assert output["ac_json"]["found"] is False
 
 
 class TestLoadStratContentContainment:

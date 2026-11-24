@@ -14,6 +14,13 @@ endpoints:
     protocol: rest
     enforcement: enforce
     access: read-write
+  # Attachment content URLs (/rest/api/2/attachment/content/<id>) redirect to the media CDN.
+  # Downloads are reads, so this host stays read-only even in the read-write profile.
+  - host: "api.media.atlassian.com"
+    port: 443
+    protocol: rest
+    enforcement: enforce
+    access: read-only
 binaries:
   - "**/python"
   - "**/python*"
