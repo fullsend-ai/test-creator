@@ -12,6 +12,7 @@ import pytest
 from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
 from scripts.utils.schemas import TEMPLATE_HEADINGS, _parse_template_headings, _require_headings
 from scripts.validate import validate_interface_types, validate_structure
+from scripts.validate_quality_evidence import _unresolved_tbd_fields
 from tests.constants import REPO_ROOT
 
 TEMPLATE_PATH = REPO_ROOT / "skills" / "test-plan-create" / "test-plan-template.md"
@@ -29,6 +30,15 @@ CALIBRATION_GUIDANCE_PATH = (
 E2E_OR_UI_DIAGNOSTIC_KEY = "missing_e2e_or_ui_in_6_2"
 _CANONICAL_TBD_RESOLUTION = (
     "TBD — Resolution: {concrete action} from/with/by/before/after/using {named source or timing}"
+)
+_GROUNDED_TBD_EXAMPLE_RE = re.compile(r"`(TBD — Resolution: [^`{}]+)`")
+_REVISE_GROUNDED_TBD_MARKERS = (
+    "Distinguish an unknown value from a missing resolution path",
+    "a TBD with no grounded resolution path stays blocking",
+    "keeping the value `TBD`",
+    "leave the TBD unchanged and still blocking",
+    "A canonical rephrase counts as an actual edit for Step 4",
+    _CANONICAL_TBD_RESOLUTION,
 )
 _ACTIONABILITY_GUIDANCE = (
     (
@@ -300,3 +310,19 @@ class TestGeneratedPlanEvidenceContracts:
             normalized_guide,
             re.IGNORECASE,
         )
+
+
+class TestRevisePromptGroundedTbdContract:
+    def test_revise_prompt_grounded_tbd_example_is_non_blocking(self):
+        examples = _GROUNDED_TBD_EXAMPLE_RE.findall(REVISE_PROMPT_PATH.read_text())
+
+        assert examples, "revise prompt must show a concrete canonical TBD rephrase example"
+        for example in examples:
+            assert _unresolved_tbd_fields(f"- Image tag: {example}") == []
+        assert _unresolved_tbd_fields("- Image tag: TBD") == ["Image tag"]
+
+    def test_revise_prompt_distinguishes_unknown_value_from_missing_path(self):
+        normalized = _normalise_whitespace(REVISE_PROMPT_PATH.read_text())
+
+        for marker in _REVISE_GROUNDED_TBD_MARKERS:
+            assert marker in normalized
