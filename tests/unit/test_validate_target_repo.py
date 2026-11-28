@@ -113,6 +113,19 @@ class TestValidateTargetRepo:
             pytest.param("https://github.com/my org/my.project", False, None, "org/repo", id="invalid-dotted-owner"),
             pytest.param("https://github.com/example/.git", False, None, "org/repo", id="empty-clone-name"),
             pytest.param(
+                "https://github.com/example/repo.git?tab=readme", True, "example/repo", None, id="clone-url-query"
+            ),
+            pytest.param(
+                "https://github.com/example/repo.git#readme", True, "example/repo", None, id="clone-url-fragment"
+            ),
+            pytest.param("https://github.com/example/repo?tab=readme", True, "example/repo", None, id="url-query"),
+            pytest.param("https://github.com/example/repo#readme", True, "example/repo", None, id="url-fragment"),
+            pytest.param("https://github.com/example/.", False, None, "org/repo", id="url-single-dot-repo"),
+            pytest.param("https://github.com/example/..", False, None, "org/repo", id="url-double-dot-repo"),
+            pytest.param("https://github.com/example/...git", False, None, "org/repo", id="url-dot-dot-git-repo"),
+            pytest.param("example/.", False, None, "org/repo", id="shorthand-single-dot-repo"),
+            pytest.param("example/..", False, None, "org/repo", id="shorthand-double-dot-repo"),
+            pytest.param(
                 "https://gitlab.com/example/my.project", False, None, "Invalid GitHub URL", id="unsupported-host"
             ),
             ("my org/repo", False, None, "org/repo"),
