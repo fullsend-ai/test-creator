@@ -4,6 +4,7 @@ Integration tests for argument parsing scripts.
 Tests validate_target_repo.py and parse_skill_args.py CLI behavior.
 """
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -17,13 +18,22 @@ from scripts.utils.repo_utils import find_target_repo, load_repo_test_context
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 
-def run_validate_target_repo(args_string: str = "") -> tuple[str, int]:
+def run_validate_target_repo(args_string: str = "", cwd: Path = REPO_ROOT) -> tuple[str, int]:
     """Run validate_target_repo.py and return (stdout, exit_code)."""
     result = subprocess.run(
-        ["uv", "run", "python", "scripts/validate_target_repo.py", args_string],
+        [
+            "uv",
+            "run",
+            "--project",
+            str(REPO_ROOT),
+            "python",
+            str(REPO_ROOT / "scripts" / "validate_target_repo.py"),
+            args_string,
+        ],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=cwd,
+        env={**os.environ, "PYTHONPATH": str(REPO_ROOT)},
     )
     return result.stdout.strip(), result.returncode
 
@@ -56,6 +66,17 @@ class TestValidateTargetRepoWithArgs:
             ("", "opendatahub-io/opendatahub-tests"),  # No args → default
             ("feature/path --target-repo opendatahub-io/notebooks", "opendatahub-io/notebooks"),
             ("--test-cases TC-001 --target-repo opendatahub-io/model-registry", "opendatahub-io/model-registry"),
+            pytest.param("--target-repo example/my.project", "example/my.project", id="dotted-shorthand"),
+            pytest.param("--target-repo https://github.com/example/my.project", "example/my.project", id="dotted-url"),
+            pytest.param(
+                "--target-repo https://github.com/example/my.project.git", "example/my.project", id="dotted-clone-url"
+            ),
+            pytest.param(
+                "--target-repo https://github.com/example/repo.git?tab=readme", "example/repo", id="clone-url-query"
+            ),
+            pytest.param(
+                "--target-repo https://github.com/example/repo.git#readme", "example/repo", id="clone-url-fragment"
+            ),
         ],
     )
     def test_parses_target_repo_from_arguments(self, args, expected_output):
@@ -89,6 +110,24 @@ class TestValidateTargetRepoWithArgs:
         _, exit_code = run_validate_target_repo(args)
 
         assert exit_code == 1
+
+    @pytest.mark.parametrize(
+        "repo_arg",
+        [
+            pytest.param("https://github.com/example/.", id="url-single-dot"),
+            pytest.param("https://github.com/example/..", id="url-double-dot"),
+            pytest.param("https://github.com/example/...git", id="url-dot-dot-git"),
+            pytest.param("example/.", id="shorthand-single-dot"),
+            pytest.param("example/..", id="shorthand-double-dot"),
+        ],
+    )
+    def test_rejects_dot_only_repo_names(self, repo_arg, tmp_path):
+        """Dot-only repo names must be rejected, not passed on as owner/. or owner/.."""
+        # Run from an empty directory so 'example/..' cannot resolve as an existing local path.
+        output, exit_code = run_validate_target_repo(f"--target-repo {repo_arg}", cwd=tmp_path)
+
+        assert exit_code == 1
+        assert output == ""
 
     def test_prints_normalized_repo_not_credentialed_url(self):
         """CLI must print org/repo, never a URL with userinfo."""
